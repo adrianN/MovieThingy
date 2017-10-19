@@ -1,0 +1,6 @@
+[package]
+name = "MovieThingy"
+version = "0.1.0"
+authors = ["Adrian Neumann <adrian_neumann@gmx.de>"]
+
+[dependencies]
