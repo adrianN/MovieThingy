@@ -10,7 +10,6 @@ use termion::raw::IntoRawMode;
 use termion::{cursor, color};
 use std::io::{Write, stdout, stdin};
 
-// one possible implementation of walking a directory only visiting files
 fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut dirs = Vec::new();
     if dir.is_dir() {
@@ -53,8 +52,9 @@ where
 fn main() {
     let mut input_str = String::new();
     let mut selection = 0;
-    let MAX_DISPLAY = 10;
     let dirs = visit_dirs(Path::new(".")).unwrap();
+    let MAX_DISPLAY = std::cmp::min(dirs.len(), 10);
+
     {
         let stdin = stdin();
         let mut stdout = stdout().into_raw_mode().unwrap();
@@ -63,8 +63,20 @@ fn main() {
         for c in stdin.keys() {
             match c.unwrap() {
                 Key::Ctrl('q') => break,
-                Key::Ctrl('p') => if selection > 0 {selection -= 1} else {selection = MAX_DISPLAY},
-                Key::Ctrl('n') => if selection < MAX_DISPLAY {selection += 1} else {selection = 0},
+                Key::Ctrl('p') => {
+                    if selection > 0 {
+                        selection -= 1
+                    } else {
+                        selection = MAX_DISPLAY - 1;
+                    }
+                }
+                Key::Ctrl('n') => {
+                    if selection < MAX_DISPLAY - 1 {
+                        selection += 1
+                    } else {
+                        selection = 0
+                    }
+                }
                 Key::Backspace => {
                     input_str.pop();
                     print!("{} {}", cursor::Left(1), cursor::Left(1));
@@ -78,7 +90,7 @@ fn main() {
             print!("{}", cursor::Goto(1, 3));
             display_list(
                 dirs.iter().map(|x| x.to_string_lossy()).take(MAX_DISPLAY),
-                selection
+                selection,
             );
             print!("{}{}", cursor::Goto(1, 1), input_str);
 
