@@ -34,7 +34,7 @@ where
     <T as std::iter::Iterator>::Item: Display,
 {
     for (i, s) in list.enumerate() {
-        if (i == highlight) {
+        if i == highlight {
             print!(
                 "{}{}{} {}{}{}\n\r",
                 color::Bg(color::White),
