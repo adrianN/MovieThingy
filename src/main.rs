@@ -10,6 +10,8 @@ use termion::raw::IntoRawMode;
 use termion::{cursor, color};
 use std::io::{Write, stdout, stdin};
 
+mod similarity;
+
 fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut dirs = Vec::new();
     if dir.is_dir() {
