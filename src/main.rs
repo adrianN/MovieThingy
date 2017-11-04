@@ -100,7 +100,22 @@ impl UIState {
     }
 }
 
+fn update_ui(
+    stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
+    ui_state: &UIState,
+    dirs: &Vec<PathBuf>,
+) {
+    print!("{}", cursor::Goto(1, 3));
+    display_list(
+        dirs.iter().map(|x| x.to_string_lossy()).take(
+            ui_state.MAX_DISPLAY,
+        ),
+        ui_state.selection,
+    );
+    print!("{}{}", cursor::Goto(1, 1), ui_state.input_str);
 
+    stdout.flush().unwrap();
+}
 
 fn main() {
     let dirs = visit_dirs(Path::new(".")).unwrap();
@@ -120,14 +135,7 @@ fn main() {
 
             ui_state.handle_input(c);
             ui_state.handle_movement(c);
-            print!("{}", cursor::Goto(1, 3));
-            display_list(
-                dirs.iter().map(|x| x.to_string_lossy()).take(ui_state.MAX_DISPLAY),
-                ui_state.selection,
-            );
-            print!("{}{}", cursor::Goto(1, 1), ui_state.input_str);
-
-            stdout.flush().unwrap();
+            update_ui(&mut stdout, &ui_state, &dirs);
         }
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
     }
