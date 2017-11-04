@@ -69,11 +69,11 @@ impl UIState {
         match c {
             Key::Backspace => {
                 self.input_str.pop();
-                print!("{} {}", cursor::Left(1), cursor::Left(1));
+                // print!("{} {}", cursor::Left(1), cursor::Left(1));
             }
             Key::Char(x) => {
                 self.input_str.push(x);
-                print!("{}", x);
+                // print!("{}", x);
             }
             _ => (),
         }
@@ -105,14 +105,15 @@ fn update_ui(
     ui_state: &UIState,
     dirs: &Vec<PathBuf>,
 ) {
-    print!("{}", cursor::Goto(1, 3));
+    let mut stdout = stdout.lock();
+    write!(stdout, "{}", cursor::Goto(1, 3));
     display_list(
         dirs.iter().map(|x| x.to_string_lossy()).take(
             ui_state.MAX_DISPLAY,
         ),
         ui_state.selection,
     );
-    print!("{}{}", cursor::Goto(1, 1), ui_state.input_str);
+    write!(stdout, "{}{} {}", cursor::Goto(1, 1), ui_state.input_str, cursor::Left(1));
 
     stdout.flush().unwrap();
 }
@@ -125,6 +126,7 @@ fn main() {
         let stdin = stdin();
         let mut stdout = stdout().into_raw_mode().unwrap();
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
+        update_ui(&mut stdout, &ui_state, &dirs);
 
         for c in stdin.keys() {
             let c = c.unwrap();
