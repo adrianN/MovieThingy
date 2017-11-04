@@ -50,12 +50,61 @@ where
     }
 }
 
+struct UIState {
+    input_str: String,
+    selection: usize,
+    MAX_DISPLAY: usize,
+}
+
+impl UIState {
+    fn new(max_display: usize) -> UIState {
+        UIState {
+            input_str: String::new(),
+            selection: 0,
+            MAX_DISPLAY: max_display,
+        }
+    }
+
+    fn handle_input(&mut self, c: Key) {
+        match c {
+            Key::Backspace => {
+                self.input_str.pop();
+                print!("{} {}", cursor::Left(1), cursor::Left(1));
+            }
+            Key::Char(x) => {
+                self.input_str.push(x);
+                print!("{}", x);
+            }
+            _ => (),
+        }
+    }
+
+    fn handle_movement(&mut self, c: Key) {
+        match c {
+            Key::Ctrl('p') => {
+                if self.selection > 0 {
+                    self.selection -= 1
+                } else {
+                    self.selection = self.MAX_DISPLAY - 1;
+                }
+            }
+            Key::Ctrl('n') => {
+                if self.selection < self.MAX_DISPLAY - 1 {
+                    self.selection += 1
+                } else {
+                    self.selection = 0
+                }
+            }
+            _ => (),
+        }
+    }
+}
+
+
 
 fn main() {
-    let mut input_str = String::new();
-    let mut selection = 0;
     let dirs = visit_dirs(Path::new(".")).unwrap();
-    let MAX_DISPLAY = std::cmp::min(dirs.len(), 10);
+    let mut ui_state = UIState::new(std::cmp::min(dirs.len(), 10));
 
     {
         let stdin = stdin();
@@ -63,42 +112,24 @@ fn main() {
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
 
         for c in stdin.keys() {
-            match c.unwrap() {
+            let c = c.unwrap();
+            match c {
                 Key::Ctrl('q') => break,
-                Key::Ctrl('p') => {
-                    if selection > 0 {
-                        selection -= 1
-                    } else {
-                        selection = MAX_DISPLAY - 1;
-                    }
-                }
-                Key::Ctrl('n') => {
-                    if selection < MAX_DISPLAY - 1 {
-                        selection += 1
-                    } else {
-                        selection = 0
-                    }
-                }
-                Key::Backspace => {
-                    input_str.pop();
-                    print!("{} {}", cursor::Left(1), cursor::Left(1));
-                }
-                Key::Char(x) => {
-                    input_str.push(x);
-                    print!("{}", x);
-                }
                 _ => {}
             }
+
+            ui_state.handle_input(c);
+            ui_state.handle_movement(c);
             print!("{}", cursor::Goto(1, 3));
             display_list(
-                dirs.iter().map(|x| x.to_string_lossy()).take(MAX_DISPLAY),
-                selection,
+                dirs.iter().map(|x| x.to_string_lossy()).take(ui_state.MAX_DISPLAY),
+                ui_state.selection,
             );
-            print!("{}{}", cursor::Goto(1, 1), input_str);
+            print!("{}{}", cursor::Goto(1, 1), ui_state.input_str);
 
             stdout.flush().unwrap();
         }
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
     }
-    println!("{}", input_str);
+    println!("{}", ui_state.input_str);
 }
