@@ -104,18 +104,24 @@ fn update_ui(
     stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
     ui_state: &UIState,
     dirs: &Vec<PathBuf>,
-) {
+) -> io::Result<()> {
     let mut stdout = stdout.lock();
-    write!(stdout, "{}", cursor::Goto(1, 3));
+    write!(stdout, "{}", cursor::Goto(1, 3))?;
     display_list(
         dirs.iter().map(|x| x.to_string_lossy()).take(
             ui_state.MAX_DISPLAY,
         ),
         ui_state.selection,
     );
-    write!(stdout, "{}{} {}", cursor::Goto(1, 1), ui_state.input_str, cursor::Left(1));
+    write!(
+        stdout,
+        "{}{} {}",
+        cursor::Goto(1, 1),
+        ui_state.input_str,
+        cursor::Left(1)
+    )?;
 
-    stdout.flush().unwrap();
+    stdout.flush()
 }
 
 fn main() {
@@ -126,7 +132,7 @@ fn main() {
         let stdin = stdin();
         let mut stdout = stdout().into_raw_mode().unwrap();
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
-        update_ui(&mut stdout, &ui_state, &dirs);
+        update_ui(&mut stdout, &ui_state, &dirs).unwrap();
 
         for c in stdin.keys() {
             let c = c.unwrap();
@@ -137,7 +143,7 @@ fn main() {
 
             ui_state.handle_input(c);
             ui_state.handle_movement(c);
-            update_ui(&mut stdout, &ui_state, &dirs);
+            update_ui(&mut stdout, &ui_state, &dirs).unwrap();
         }
         print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
     }
