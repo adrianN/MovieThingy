@@ -107,10 +107,15 @@ fn update_ui(
 ) -> io::Result<()> {
     let mut stdout = stdout.lock();
     write!(stdout, "{}", cursor::Goto(1, 3))?;
+    let mut items = dirs.iter()
+        .map(|x| x.to_string_lossy())
+        .map(|x| (similarity::score(&ui_state.input_str, &*x), x))
+        .collect::<Vec<(isize, std::borrow::Cow<str>)>>();
+    items.sort();
     display_list(
-        dirs.iter().map(|x| x.to_string_lossy()).take(
-            ui_state.MAX_DISPLAY,
-        ),
+        items.into_iter().take(ui_state.MAX_DISPLAY).map(|(s, x)| {
+            format!("{} {}", s, x)
+        }),
         ui_state.selection,
     );
     write!(

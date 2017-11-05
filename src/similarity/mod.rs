@@ -1,6 +1,3 @@
-mod similarity {
-
-    pub fn score(pattern : &String, text : &String) -> isize {
-        5
-    }
+pub fn score(pattern: &str, text: &str) -> isize {
+    5
 }
