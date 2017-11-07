@@ -33,14 +33,20 @@ fn score_equality() {
 
 #[test]
 fn score_substring() {
+    {
     let s = score("aoeu","xyzaoeuLMN");
     println!("score aoeu xyzaoeuLMN: {}", s);
-    assert!(s == 6);
+    assert!(s == 6*TEXT_SKIP_PENALTY);
+    }
+
+    let s = score("xyzaoeuLMN","aoeu");
+    println!("score aoeu xyzaoeuLMN: {}", s);
+    assert!(s == 6*PATTERN_SKIP_PENALTY);
 }
 
 #[test]
 fn score_subsequence() {
     let s = score("aoeu","xayozeLu");
     println!("score aoeu xayozeLu: {}", s);
-    assert!(s == 4);
+    assert!(s == 4*TEXT_SKIP_PENALTY);
 }
