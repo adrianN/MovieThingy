@@ -7,7 +7,7 @@ use std::path::{PathBuf, Path};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use termion::{cursor, color};
+use termion::{cursor, color, clear};
 use std::io::{Write, stdout, stdin};
 
 mod similarity;
@@ -36,16 +36,17 @@ where
     for (i, s) in list.enumerate() {
         if i == highlight {
             print!(
-                "{}{}{} {}{}{}\n\r",
+                "{}{}{} {}{}{}{}\n\r",
                 color::Bg(color::White),
                 color::Fg(color::Black),
                 i,
                 s,
                 color::Bg(color::Reset),
-                color::Fg(color::Reset)
+                color::Fg(color::Reset),
+                clear::AfterCursor
             );
         } else {
-            print!("{} {}\n\r", i, s);
+            print!("{} {}{}\n\r", i, s, clear::AfterCursor);
         }
     }
 }
