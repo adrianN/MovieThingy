@@ -131,27 +131,26 @@ fn update_ui(
 }
 
 fn main() {
+    let stdin = stdin();
+    println!("Reading dirs...");
+    stdout().flush();
+    let mut stdout = stdout().into_raw_mode().unwrap();
     let dirs = visit_dirs(Path::new(".")).unwrap();
     let mut ui_state = UIState::new(std::cmp::min(dirs.len(), 10));
 
-    {
-        let stdin = stdin();
-        let mut stdout = stdout().into_raw_mode().unwrap();
-        print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
-        update_ui(&mut stdout, &ui_state, &dirs).unwrap();
+    print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
+    update_ui(&mut stdout, &ui_state, &dirs).unwrap();
 
-        for c in stdin.keys() {
-            let c = c.unwrap();
-            match c {
-                Key::Ctrl('q') => break,
-                _ => {}
-            }
-
-            ui_state.handle_input(c);
-            ui_state.handle_movement(c);
-            update_ui(&mut stdout, &ui_state, &dirs).unwrap();
+    for c in stdin.keys() {
+        let c = c.unwrap();
+        match c {
+            Key::Ctrl('q') => break,
+            _ => {}
         }
-        print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
+
+        ui_state.handle_input(c);
+        ui_state.handle_movement(c);
+        update_ui(&mut stdout, &ui_state, &dirs).unwrap();
     }
-    println!("{}", ui_state.input_str);
+    print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
 }
