@@ -5,3 +5,4 @@ authors = ["Adrian Neumann <adrian_neumann@gmx.de>"]
 
 [dependencies]
 termion = "*"
+regex = "*"

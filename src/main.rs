@@ -1,4 +1,5 @@
 extern crate termion;
+extern crate regex;
 
 use std::io;
 use std::fmt::Display;
@@ -9,21 +10,29 @@ use termion::input::TermRead;
 use termion::raw::IntoRawMode;
 use termion::{cursor, color, clear};
 use std::io::{Write, stdout, stdin};
+use regex::Regex;
+use std::fs::File;
+use std::io::Read;
 
 mod similarity;
 
 fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut dirs = Vec::new();
-    if dir.is_dir() {
-        for entry in fs::read_dir(dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_dir() {
-                dirs.extend(visit_dirs(&path)?);
+    if let Ok(subdirs) = fs::read_dir(dir) {
+        for entry in subdirs {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    dirs.extend(visit_dirs(&path)?);
+                } else {
+                    dirs.push(path);
+                }
             } else {
-                dirs.push(path);
+                println!("Skip {:?}", entry);
             }
         }
+    } else {
+        println!("Skip {:?}", dir);
     }
     Ok(dirs)
 }
@@ -124,18 +133,55 @@ fn update_ui(
         "{}{} {}",
         cursor::Goto(1, 1),
         ui_state.input_str,
-        cursor::Left(1)
+        cursor::Left(1),
     )?;
 
     stdout.flush()
 }
 
+fn get_work_dir() -> PathBuf {
+    fn read_dotfile() -> Result<PathBuf, std::io::Error> {
+        let mut contents = String::new();
+        let mut config_path = std::env::home_dir().ok_or(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "no home",
+        ))?;
+        config_path.push(".moviethingy");
+        let dir = File::open(config_path)
+            .and_then(|mut file| file.read_to_string(&mut contents))
+            .and_then(|_| {
+                let re = Regex::new("^dir *= *(\\S*)\\s*").unwrap();
+                for p in re.captures_iter(&contents) {
+                    return Ok(p.get(1).unwrap().as_str());
+                }
+                Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "no capture",
+                ))
+            })?;
+        let dir = if let Some(_) = dir.find('~') {
+            //this can't be right
+            str::replace(dir, '~', &*std::env::home_dir().unwrap().to_string_lossy())
+        } else {
+            dir.to_owned()
+        };
+        Ok(Path::new(dir.as_str()).to_path_buf())
+    }
+    let p = Path::new(".").to_owned();
+    if let Ok(path) = read_dotfile() {
+        path
+    } else {
+        p
+    }
+}
+
 fn main() {
     let stdin = stdin();
-    println!("Reading dirs...");
+    let input_dir = get_work_dir();
+    println!("Reading {}...", input_dir.as_path().to_string_lossy());
     stdout().flush();
     let mut stdout = stdout().into_raw_mode().unwrap();
-    let dirs = visit_dirs(Path::new(".")).unwrap();
+    let dirs = visit_dirs(input_dir.as_path()).unwrap();
     let mut ui_state = UIState::new(std::cmp::min(dirs.len(), 10));
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
