@@ -13,6 +13,7 @@ use std::io::{Write, stdout, stdin};
 use regex::Regex;
 use std::fs::File;
 use std::io::Read;
+use std::ffi::OsStr;
 
 mod similarity;
 
@@ -24,7 +25,7 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
                 let path = entry.path();
                 if path.is_dir() {
                     dirs.extend(visit_dirs(&path)?);
-                } else {
+                } else if path.extension() == Some(OsStr::new("mp4")) {
                     dirs.push(path);
                 }
             } else {
