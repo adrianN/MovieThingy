@@ -63,14 +63,16 @@ where
 
 struct UIState {
     input_str: String,
+    workdir_len: usize,
     selection: usize,
     MAX_DISPLAY: usize,
 }
 
 impl UIState {
-    fn new(max_display: usize) -> UIState {
+    fn new(max_display: usize, len: usize) -> UIState {
         UIState {
             input_str: String::new(),
+            workdir_len: len,
             selection: 0,
             MAX_DISPLAY: max_display,
         }
@@ -125,9 +127,9 @@ fn update_ui(
     items.sort();
     display_list(
         items.into_iter().take(ui_state.MAX_DISPLAY).map(|(s, x)| {
-            format!("{} {}", s, x)
+            format!("{} {}", s, &x[ui_state.workdir_len..]  )
         }),
-        ui_state.selection,
+        ui_state.selection
     );
     write!(
         stdout,
@@ -183,7 +185,10 @@ fn main() {
     stdout().flush();
     let mut stdout = stdout().into_raw_mode().unwrap();
     let dirs = visit_dirs(input_dir.as_path()).unwrap();
-    let mut ui_state = UIState::new(std::cmp::min(dirs.len(), 10));
+    let mut ui_state = UIState::new(
+        std::cmp::min(dirs.len(), 10),
+        input_dir.to_string_lossy().len(),
+    );
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
     update_ui(&mut stdout, &ui_state, &dirs).unwrap();
