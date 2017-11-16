@@ -182,7 +182,7 @@ fn main() {
     let stdin = stdin();
     let input_dir = get_work_dir();
     println!("Reading {}...", input_dir.as_path().to_string_lossy());
-    stdout().flush();
+    stdout().flush().unwrap();
     let mut stdout = stdout().into_raw_mode().unwrap();
     let dirs = visit_dirs(input_dir.as_path()).unwrap();
     let mut ui_state = UIState::new(
