@@ -27,7 +27,7 @@ impl TableEntry {
 
     fn inc_streak(&mut self) {
         self.cur_streak += 1;
-        self.max_streak =std::cmp::max(self.max_streak, self.cur_streak);
+        self.max_streak = std::cmp::max(self.max_streak, self.cur_streak);
     }
 }
 
