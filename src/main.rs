@@ -2,6 +2,7 @@ extern crate termion;
 extern crate regex;
 
 use std::io;
+use std::process::{Command, Stdio};
 use std::fmt::Display;
 use std::fs;
 use std::path::{PathBuf, Path};
@@ -82,11 +83,11 @@ impl UIState {
         match c {
             Key::Backspace => {
                 self.input_str.pop();
-                // print!("{} {}", cursor::Left(1), cursor::Left(1));
+                self.selection = 0;
             }
-            Key::Char(x) => {
+            Key::Char(x) if x != '\n' => {
                 self.input_str.push(x);
-                // print!("{}", x);
+                self.selection = 0;
             }
             _ => (),
         }
@@ -113,6 +114,19 @@ impl UIState {
     }
 }
 
+fn calc_scores<'a, 'b>(
+    dirs: &'a Vec<PathBuf>,
+    ui_state: &'b UIState,
+) -> Vec<(isize, &'a PathBuf, std::borrow::Cow<'a, str>)> {
+    let mut items = dirs.iter()
+        .map(|x| {
+            let y = x.to_string_lossy();
+            (similarity::score(&ui_state.input_str, &*y), x, y)
+        })
+        .collect::<Vec<(isize, &PathBuf, std::borrow::Cow<str>)>>();
+    items.sort();
+    items
+}
 fn update_ui(
     stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
     ui_state: &UIState,
@@ -120,16 +134,14 @@ fn update_ui(
 ) -> io::Result<()> {
     let mut stdout = stdout.lock();
     write!(stdout, "{}", cursor::Goto(1, 3))?;
-    let mut items = dirs.iter()
-        .map(|x| x.to_string_lossy())
-        .map(|x| (similarity::score(&ui_state.input_str, &*x), x))
-        .collect::<Vec<(isize, std::borrow::Cow<str>)>>();
-    items.sort();
+    let items = calc_scores(&dirs, &ui_state);
     display_list(
-        items.into_iter().take(ui_state.MAX_DISPLAY).map(|(s, x)| {
-            format!("{} {}", s, &x[ui_state.workdir_len..]  )
-        }),
-        ui_state.selection
+        items.into_iter().take(ui_state.MAX_DISPLAY).map(
+            |(s, _, x)| {
+                format!("{} {}", s, &x[ui_state.workdir_len..])
+            },
+        ),
+        ui_state.selection,
     );
     write!(
         stdout,
@@ -178,12 +190,24 @@ fn get_work_dir() -> PathBuf {
     }
 }
 
+fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>) -> bool {
+    let path = calc_scores(&dirs, &ui_state)[ui_state.selection].1;
+    let mut process = Command::new("/usr/bin/omxplayer");
+    let process = process.arg("-o").arg("hdmi").arg("-b").arg(path);
+    let mut child = process
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .spawn()
+        .expect("failed to start omxplayer");
+    child.wait().expect("failed to wait for omxplayer").success()
+}
+
 fn main() {
     let stdin = stdin();
     let input_dir = get_work_dir();
     println!("Reading {}...", input_dir.as_path().to_string_lossy());
     stdout().flush().unwrap();
-    let mut stdout = stdout().into_raw_mode().unwrap();
+    let mut raw_term = stdout().into_raw_mode().unwrap();
     let dirs = visit_dirs(input_dir.as_path()).unwrap();
     let mut ui_state = UIState::new(
         std::cmp::min(dirs.len(), 10),
@@ -191,18 +215,29 @@ fn main() {
     );
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
-    update_ui(&mut stdout, &ui_state, &dirs).unwrap();
+    update_ui(&mut raw_term, &ui_state, &dirs).unwrap();
 
     for c in stdin.keys() {
         let c = c.unwrap();
         match c {
-            Key::Ctrl('q') => break,
+            Key::Ctrl('q') => {
+                break;
+            }
+            Key::Char('\n') => {
+                print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
+                raw_term.flush().unwrap();
+                drop(raw_term);
+                play_video(&ui_state, &dirs);
+                raw_term = stdout().into_raw_mode().unwrap();
+                print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
+            }
             _ => {}
         }
 
         ui_state.handle_input(c);
         ui_state.handle_movement(c);
-        update_ui(&mut stdout, &ui_state, &dirs).unwrap();
+        update_ui(&mut raw_term, &ui_state, &dirs).unwrap();
     }
+
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
 }
