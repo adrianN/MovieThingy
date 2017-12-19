@@ -154,13 +154,37 @@ fn update_ui(
     stdout.flush()
 }
 
+fn get_home() -> Result<PathBuf, std::io::Error> {
+    std::env::home_dir().ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "no home"))
+}
+
+fn get_last_command() -> Option<String> {
+    let mut contents = String::new();
+    let path: Result<PathBuf, std::io::Error> = get_home().map(|mut path| {
+        path.push(".moviethingy.lastcommand");
+        path
+    });
+    path.and_then(|path| File::open(path))
+        .and_then(|mut file| file.read_to_string(&mut contents))
+        .ok()
+        .and(Some(contents))
+        .or(None)
+}
+
+fn write_last_command(command : &String) -> () {
+    let path: Result<PathBuf, std::io::Error> = get_home().map(|mut path| {
+        path.push(".moviethingy.lastcommand");
+        path
+    });
+    path.and_then(|path| File::create(path))
+        .and_then(|mut file| file.write_all(command.as_bytes())).unwrap();
+    
+}
+
 fn get_work_dir() -> PathBuf {
     fn read_dotfile() -> Result<PathBuf, std::io::Error> {
         let mut contents = String::new();
-        let mut config_path = std::env::home_dir().ok_or(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "no home",
-        ))?;
+        let mut config_path = get_home()?;
         config_path.push(".moviethingy");
         let dir = File::open(config_path)
             .and_then(|mut file| file.read_to_string(&mut contents))
@@ -199,7 +223,10 @@ fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>) -> bool {
         .stdout(Stdio::inherit())
         .spawn()
         .expect("failed to start omxplayer");
-    child.wait().expect("failed to wait for omxplayer").success()
+    child
+        .wait()
+        .expect("failed to wait for omxplayer")
+        .success()
 }
 
 fn main() {
@@ -214,6 +241,8 @@ fn main() {
         input_dir.to_string_lossy().len(),
     );
 
+    ui_state.input_str = get_last_command().unwrap_or(String::new());
+
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
     update_ui(&mut raw_term, &ui_state, &dirs).unwrap();
 
@@ -227,6 +256,7 @@ fn main() {
                 print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
                 raw_term.flush().unwrap();
                 drop(raw_term);
+                write_last_command(&ui_state.input_str);
                 play_video(&ui_state, &dirs);
                 raw_term = stdout().into_raw_mode().unwrap();
                 print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
