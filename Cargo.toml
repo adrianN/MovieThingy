@@ -6,3 +6,4 @@ authors = ["Adrian Neumann <adrian_neumann@gmx.de>"]
 [dependencies]
 termion = "*"
 regex = "*"
+smith_waterman = { git = "https://github.com/adrianN/smith_waterman.git" }

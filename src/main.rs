@@ -1,5 +1,6 @@
 extern crate termion;
 extern crate regex;
+extern crate smith_waterman;
 
 use std::io;
 use std::process::{Command, Stdio};
@@ -15,8 +16,6 @@ use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::ffi::OsStr;
-
-mod similarity;
 
 fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut dirs = Vec::new();
@@ -116,25 +115,26 @@ impl UIState {
 
 fn calc_scores<'a, 'b>(
     dirs: &'a Vec<PathBuf>,
-    ui_state: &'b UIState,
+    matchers: &'a Vec<smith_waterman::Matcher>
 ) -> Vec<(isize, &'a PathBuf, std::borrow::Cow<'a, str>)> {
-    let mut items = dirs.iter()
-        .map(|x| {
-            let y = x.to_string_lossy();
-            (similarity::score(&ui_state.input_str, &*y), x, y)
+    let mut items = dirs.iter().enumerate()
+        .map(|(i,x)| {
+            (-matchers[i].score(), x, x.to_string_lossy())
         })
         .collect::<Vec<(isize, &PathBuf, std::borrow::Cow<str>)>>();
     items.sort();
     items
 }
+
 fn update_ui(
     stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
     ui_state: &UIState,
     dirs: &Vec<PathBuf>,
+    matchers: &Vec<smith_waterman::Matcher>
 ) -> io::Result<()> {
     let mut stdout = stdout.lock();
     write!(stdout, "{}", cursor::Goto(1, 3))?;
-    let items = calc_scores(&dirs, &ui_state);
+    let items = calc_scores(&dirs, &matchers);
     display_list(
         items.into_iter().take(ui_state.MAX_DISPLAY).map(
             |(s, _, x)| {
@@ -178,7 +178,6 @@ fn write_last_command(command : &String) -> () {
     });
     path.and_then(|path| File::create(path))
         .and_then(|mut file| file.write_all(command.as_bytes())).unwrap();
-    
 }
 
 fn get_work_dir() -> PathBuf {
@@ -214,8 +213,8 @@ fn get_work_dir() -> PathBuf {
     }
 }
 
-fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>) -> bool {
-    let path = calc_scores(&dirs, &ui_state)[ui_state.selection].1;
+fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>, matchers : &Vec<smith_waterman::Matcher>) -> bool {
+    let path = calc_scores(&dirs, &matchers)[ui_state.selection].1;
     let mut process = Command::new("/usr/bin/omxplayer");
     let process = process.arg("-o").arg("hdmi").arg("-b").arg(path);
     let mut child = process
@@ -229,22 +228,52 @@ fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>) -> bool {
         .success()
 }
 
+fn update_scores(matchers : &mut Vec<smith_waterman::Matcher>, c : Key) {
+        match c {
+            Key::Backspace => {
+                for m in matchers.iter_mut() {
+                    m.remove_pchar();
+                }
+            }
+            Key::Char(x) if x != '\n' => {
+                for m in matchers.iter_mut() {
+                    assert_eq!(x.to_string().as_bytes().len(), 1);
+                    assert_eq!(x.to_string().as_bytes()[0], x as u8);
+                    m.add_pchar(x as u8);
+                }
+            }
+            _ => (),
+        }
+}
+
 fn main() {
     let stdin = stdin();
     let input_dir = get_work_dir();
     println!("Reading {}...", input_dir.as_path().to_string_lossy());
     stdout().flush().unwrap();
     let mut raw_term = stdout().into_raw_mode().unwrap();
+
+    // read all directories
     let dirs = visit_dirs(input_dir.as_path()).unwrap();
+
+    // initialize ui state
     let mut ui_state = UIState::new(
         std::cmp::min(dirs.len(), 10),
         input_dir.to_string_lossy().len(),
     );
-
     ui_state.input_str = get_last_command().unwrap_or(String::new());
+    let dirstring : Vec<String> = dirs.iter().map(|d| String::from(d.to_string_lossy())).collect();
+    // initialize matchers
+    let mut matchers : Vec<smith_waterman::Matcher> = dirstring.iter().map(|d| smith_waterman::Matcher::new(d) ).collect();
+
+    for x in ui_state.input_str.as_bytes() {
+        for m in matchers.iter_mut() {
+            m.add_pchar(*x);
+        }
+    }
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
-    update_ui(&mut raw_term, &ui_state, &dirs).unwrap();
+    update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
 
     for c in stdin.keys() {
         let c = c.unwrap();
@@ -257,16 +286,17 @@ fn main() {
                 raw_term.flush().unwrap();
                 drop(raw_term);
                 write_last_command(&ui_state.input_str);
-                play_video(&ui_state, &dirs);
+                play_video(&ui_state, &dirs, &matchers);
                 raw_term = stdout().into_raw_mode().unwrap();
                 print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
             }
             _ => {}
         }
 
+        update_scores(&mut matchers, c);
         ui_state.handle_input(c);
         ui_state.handle_movement(c);
-        update_ui(&mut raw_term, &ui_state, &dirs).unwrap();
+        update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
     }
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
