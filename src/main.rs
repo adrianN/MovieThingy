@@ -4,18 +4,20 @@ extern crate smith_waterman;
 
 use std::io;
 use std::process::{Command, Stdio};
-use std::fmt::Display;
 use std::fs;
 use std::path::{PathBuf, Path};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use termion::{cursor, color, clear};
+use termion::{cursor};
 use std::io::{Write, stdout, stdin};
 use regex::Regex;
 use std::fs::File;
 use std::io::Read;
 use std::ffi::OsStr;
+
+mod ui;
+mod scoring;
 
 fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     let mut dirs = Vec::new();
@@ -38,121 +40,6 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
     Ok(dirs)
 }
 
-fn display_list<T>(list: T, highlight: usize)
-where
-    T: Iterator,
-    <T as std::iter::Iterator>::Item: Display,
-{
-    for (i, s) in list.enumerate() {
-        if i == highlight {
-            print!(
-                "{}{}{} {}{}{}{}\n\r",
-                color::Bg(color::White),
-                color::Fg(color::Black),
-                i,
-                s,
-                color::Bg(color::Reset),
-                color::Fg(color::Reset),
-                clear::AfterCursor
-            );
-        } else {
-            print!("{} {}{}\n\r", i, s, clear::AfterCursor);
-        }
-    }
-}
-
-struct UIState {
-    input_str: String,
-    workdir_len: usize,
-    selection: usize,
-    MAX_DISPLAY: usize,
-}
-
-impl UIState {
-    fn new(max_display: usize, len: usize) -> UIState {
-        UIState {
-            input_str: String::new(),
-            workdir_len: len,
-            selection: 0,
-            MAX_DISPLAY: max_display,
-        }
-    }
-
-    fn handle_input(&mut self, c: Key) {
-        match c {
-            Key::Backspace => {
-                self.input_str.pop();
-                self.selection = 0;
-            }
-            Key::Char(x) if x != '\n' => {
-                self.input_str.push(x);
-                self.selection = 0;
-            }
-            _ => (),
-        }
-    }
-
-    fn handle_movement(&mut self, c: Key) {
-        match c {
-            Key::Ctrl('p') => {
-                if self.selection > 0 {
-                    self.selection -= 1
-                } else {
-                    self.selection = self.MAX_DISPLAY - 1;
-                }
-            }
-            Key::Ctrl('n') => {
-                if self.selection < self.MAX_DISPLAY - 1 {
-                    self.selection += 1
-                } else {
-                    self.selection = 0
-                }
-            }
-            _ => (),
-        }
-    }
-}
-
-fn calc_scores<'a, 'b>(
-    dirs: &'a Vec<PathBuf>,
-    matchers: &'a Vec<smith_waterman::Matcher>
-) -> Vec<(isize, &'a PathBuf, std::borrow::Cow<'a, str>)> {
-    let mut items = dirs.iter().enumerate()
-        .map(|(i,x)| {
-            (-matchers[i].score(), x, x.to_string_lossy())
-        })
-        .collect::<Vec<(isize, &PathBuf, std::borrow::Cow<str>)>>();
-    items.sort();
-    items
-}
-
-fn update_ui(
-    stdout: &mut termion::raw::RawTerminal<std::io::Stdout>,
-    ui_state: &UIState,
-    dirs: &Vec<PathBuf>,
-    matchers: &Vec<smith_waterman::Matcher>
-) -> io::Result<()> {
-    let mut stdout = stdout.lock();
-    write!(stdout, "{}", cursor::Goto(1, 3))?;
-    let items = calc_scores(&dirs, &matchers);
-    display_list(
-        items.into_iter().take(ui_state.MAX_DISPLAY).map(
-            |(s, _, x)| {
-                format!("{} {}", s, &x[ui_state.workdir_len..])
-            },
-        ),
-        ui_state.selection,
-    );
-    write!(
-        stdout,
-        "{}{} {}",
-        cursor::Goto(1, 1),
-        ui_state.input_str,
-        cursor::Left(1),
-    )?;
-
-    stdout.flush()
-}
 
 fn get_home() -> Result<PathBuf, std::io::Error> {
     std::env::home_dir().ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "no home"))
@@ -213,8 +100,8 @@ fn get_work_dir() -> PathBuf {
     }
 }
 
-fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>, matchers : &Vec<smith_waterman::Matcher>) -> bool {
-    let path = calc_scores(&dirs, &matchers)[ui_state.selection].1;
+fn play_video(ui_state: &ui::UIState, dirs: &Vec<PathBuf>, matchers : &Vec<smith_waterman::Matcher>) -> bool {
+    let path = scoring::calc_scores(&dirs, &matchers)[ui_state.selection].1;
     let mut process = Command::new("/usr/bin/omxplayer");
     let process = process.arg("-o").arg("hdmi").arg("-b").arg(path);
     let mut child = process
@@ -228,24 +115,6 @@ fn play_video(ui_state: &UIState, dirs: &Vec<PathBuf>, matchers : &Vec<smith_wat
         .success()
 }
 
-fn update_scores(matchers : &mut Vec<smith_waterman::Matcher>, c : Key) {
-        match c {
-            Key::Backspace => {
-                for m in matchers.iter_mut() {
-                    m.remove_pchar();
-                }
-            }
-            Key::Char(x) if x != '\n' => {
-                for m in matchers.iter_mut() {
-                    assert_eq!(x.to_string().as_bytes().len(), 1);
-                    assert_eq!(x.to_string().as_bytes()[0], x as u8);
-                    m.add_pchar(x as u8);
-                }
-            }
-            _ => (),
-        }
-}
-
 fn main() {
     let stdin = stdin();
     let input_dir = get_work_dir();
@@ -257,7 +126,7 @@ fn main() {
     let dirs = visit_dirs(input_dir.as_path()).unwrap();
 
     // initialize ui state
-    let mut ui_state = UIState::new(
+    let mut ui_state = ui::UIState::new(
         std::cmp::min(dirs.len(), 10),
         input_dir.to_string_lossy().len(),
     );
@@ -273,7 +142,7 @@ fn main() {
     }
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
-    update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
+    ui::update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
 
     for c in stdin.keys() {
         let c = c.unwrap();
@@ -293,10 +162,10 @@ fn main() {
             _ => {}
         }
 
-        update_scores(&mut matchers, c);
+        scoring::update_scores(&mut matchers, c);
         ui_state.handle_input(c);
         ui_state.handle_movement(c);
-        update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
+        ui::update_ui(&mut raw_term, &ui_state, &dirs, &matchers).unwrap();
     }
 
     print!("{}{}", termion::clear::All, cursor::Goto(1, 1));
