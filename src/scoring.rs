@@ -5,9 +5,9 @@ use termion::event::Key;
 use std::path::PathBuf;
 use std::borrow::Cow;
 
-pub fn calc_scores<'a, 'b>(
-    dirs: &'a Vec<PathBuf>,
-    matchers: &'a Vec<smith_waterman::Matcher>
+pub fn calc_scores<'a>(
+    dirs: &'a[PathBuf],
+    matchers: &'a [smith_waterman::Matcher],
 ) -> Vec<(isize, &'a PathBuf, Cow<'a, str>)> {
     let mut items = dirs.iter().enumerate()
         .map(|(i,x)| {

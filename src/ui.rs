@@ -89,12 +89,12 @@ impl UIState {
 pub fn update_ui(
     stdout: &mut termion::raw::RawTerminal<Stdout>,
     ui_state: &UIState,
-    dirs: &Vec<PathBuf>,
-    matchers: &Vec<smith_waterman::Matcher>
+    dirs: &[PathBuf],
+    matchers: &[smith_waterman::Matcher]
 ) -> io::Result<()> {
     let mut stdout = stdout.lock();
     write!(stdout, "{}", cursor::Goto(1, 3))?;
-    let items = scoring::calc_scores(&dirs, &matchers);
+    let items = scoring::calc_scores(dirs, matchers);
     display_list(
         items.into_iter().take(ui_state.MAX_DISPLAY).map(
             |(s, _, x)| {

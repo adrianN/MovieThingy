@@ -42,7 +42,7 @@ fn visit_dirs(dir: &Path) -> io::Result<Vec<PathBuf>> {
 
 
 fn get_home() -> Result<PathBuf, std::io::Error> {
-    std::env::home_dir().ok_or(std::io::Error::new(std::io::ErrorKind::NotFound, "no home"))
+    std::env::home_dir().ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "no home"))
 }
 
 fn get_last_command() -> Option<String> {
@@ -51,19 +51,19 @@ fn get_last_command() -> Option<String> {
         path.push(".moviethingy.lastcommand");
         path
     });
-    path.and_then(|path| File::open(path))
+    path.and_then(File::open)
         .and_then(|mut file| file.read_to_string(&mut contents))
         .ok()
         .and(Some(contents))
         .or(None)
 }
 
-fn write_last_command(command : &String) -> () {
+fn write_last_command(command : &str) -> () {
     let path: Result<PathBuf, std::io::Error> = get_home().map(|mut path| {
         path.push(".moviethingy.lastcommand");
         path
     });
-    path.and_then(|path| File::create(path))
+    path.and_then(File::create)
         .and_then(|mut file| file.write_all(command.as_bytes())).unwrap();
 }
 
@@ -84,7 +84,7 @@ fn get_work_dir() -> PathBuf {
                     "no capture",
                 ))
             })?;
-        let dir = if let Some(_) = dir.find('~') {
+        let dir = if dir.find('~').is_some() {
             //this can't be right
             str::replace(dir, '~', &*std::env::home_dir().unwrap().to_string_lossy())
         } else {
@@ -100,8 +100,8 @@ fn get_work_dir() -> PathBuf {
     }
 }
 
-fn play_video(ui_state: &ui::UIState, dirs: &Vec<PathBuf>, matchers : &Vec<smith_waterman::Matcher>) -> bool {
-    let path = scoring::calc_scores(&dirs, &matchers)[ui_state.selection].1;
+fn play_video(ui_state: &ui::UIState, dirs: &[PathBuf], matchers : &[smith_waterman::Matcher]) -> bool {
+    let path = scoring::calc_scores(dirs, matchers)[ui_state.selection].1;
     let mut process = Command::new("/usr/bin/omxplayer");
     let process = process.arg("-o").arg("hdmi").arg("-b").arg(path);
     let mut child = process
@@ -130,13 +130,13 @@ fn main() {
         std::cmp::min(dirs.len(), 10),
         input_dir.to_string_lossy().len(),
     );
-    ui_state.input_str = get_last_command().unwrap_or(String::new());
+    ui_state.input_str = get_last_command().unwrap_or_default();
     let dirstring : Vec<String> = dirs.iter().map(|d| String::from(d.to_string_lossy())).collect();
     // initialize matchers
     let mut matchers : Vec<smith_waterman::Matcher> = dirstring.iter().map(|d| smith_waterman::Matcher::new(d) ).collect();
 
     for x in ui_state.input_str.as_bytes() {
-        for m in matchers.iter_mut() {
+        for m in &mut matchers {
             m.add_pchar(*x);
         }
     }
