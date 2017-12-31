@@ -3,7 +3,7 @@ name = "MovieThingy"
 version = "0.2.1"
 dependencies = [
  "regex 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "smith_waterman 0.3.0 (git+https://github.com/adrianN/smith_waterman.git)",
+ "smith_waterman 0.3.1 (git+https://github.com/adrianN/smith_waterman.git)",
  "termion 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -65,8 +65,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "smith_waterman"
-version = "0.3.0"
-source = "git+https://github.com/adrianN/smith_waterman.git#fa5aeafe2dba1163bda4aae80ea85b925d45b247"
+version = "0.3.1"
+source = "git+https://github.com/adrianN/smith_waterman.git#711c481b866caff5f5d1cb3b4e5bbfaaa9fddf5a"
 
 [[package]]
 name = "termion"
@@ -114,7 +114,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum redox_termios 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7e891cfe48e9100a70a3b6eb652fef28920c117d366339687bd5576160db0f76"
 "checksum regex 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)" = "ac6ab4e9218ade5b423358bbd2567d1617418403c7a512603630181813316322"
 "checksum regex-syntax 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ad890a5eef7953f55427c50575c680c42841653abd2b028b68cd223d157f62db"
-"checksum smith_waterman 0.3.0 (git+https://github.com/adrianN/smith_waterman.git)" = "<none>"
+"checksum smith_waterman 0.3.1 (git+https://github.com/adrianN/smith_waterman.git)" = "<none>"
 "checksum termion 1.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "689a3bdfaab439fd92bc87df5c4c78417d3cbe537487274e9b0b2dce76e92096"
 "checksum thread_local 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)" = "279ef31c19ededf577bfd12dfae728040a21f635b06a24cd670ff510edd38963"
 "checksum unreachable 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "382810877fe448991dfc7f0dd6e3ae5d58088fd0ea5e35189655f84e6814fa56"
