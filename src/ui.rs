@@ -1,15 +1,10 @@
 extern crate termion;
-extern crate smith_waterman;
 use termion::{cursor, color, clear};
 use termion::event::Key;
 use std::iter::Iterator;
 use std::fmt::Display;
 use std::io;
 use std::io::{Write, Stdout};
-use std::path::PathBuf;
-
-use scoring;
-
 
 pub fn display_list<T>(list: T, highlight: usize)
 where
@@ -86,21 +81,18 @@ impl UIState {
     }
 }
 
-pub fn update_ui(
+pub fn update_ui<'a, T>(
     stdout: &mut termion::raw::RawTerminal<Stdout>,
     ui_state: &UIState,
-    dirs: &[PathBuf],
-    matchers: &[smith_waterman::Matcher]
-) -> io::Result<()> {
+    dirs: T,
+) -> io::Result<()>
+where
+    T: IntoIterator<Item = &'a str>,
+{
     let mut stdout = stdout.lock();
     write!(stdout, "{}", cursor::Goto(1, 3))?;
-    let items = scoring::calc_scores(dirs, matchers);
     display_list(
-        items.into_iter().take(ui_state.MAX_DISPLAY).map(
-            |(s, _, x)| {
-                format!("{} {}", s, &x[ui_state.workdir_len..])
-            },
-        ),
+        dirs.into_iter().take(ui_state.MAX_DISPLAY),
         ui_state.selection,
     );
     write!(
@@ -109,7 +101,7 @@ pub fn update_ui(
         cursor::Goto(1, 1),
         ui_state.input_str,
         cursor::Left(1),
-    )?;
+        )?;
 
     stdout.flush()
 }

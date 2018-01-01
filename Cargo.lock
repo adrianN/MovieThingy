@@ -1,6 +1,6 @@
 [[package]]
 name = "MovieThingy"
-version = "0.2.1"
+version = "0.2.3"
 dependencies = [
  "regex 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "smith_waterman 0.3.1 (git+https://github.com/adrianN/smith_waterman.git)",
